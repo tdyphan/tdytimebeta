@@ -1,15 +1,41 @@
 /**
  * i18n Configuration — TdyTime v2
- * Merges critical inline translations for instant availability,
- * then lazy-loads full translation bundles.
+ * Critical translations embedded directly for instant availability.
  */
 
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { APP_VERSION } from '@/core/constants';
 
-// 🎯 Merge critical translations immediately (from index.html inline script)
-const criticalTranslations = (window as any).CRITICAL_I18N;
+// 🎯 Critical translations embedded directly (no window dependency)
+const CRITICAL_TRANSLATIONS: Record<string, Record<string, string>> = {
+    vi: {
+        'app.title': 'TdyTime {{version}}',
+        'app.tagline': 'Your Today, Your Time',
+        'app.uploadTitle': 'Tải tệp lịch',
+        'app.uploadDesc': 'Hỗ trợ .html hoặc .json',
+        'app.pasteTitle': 'Dán mã HTML',
+        'app.pasteDesc': 'Dán trực tiếp từ trang web',
+        'app.demoMode': 'Chế độ demo',
+        'common.copyright': '© 2026 TdyTime | Google AI Studio',
+        'common.loading': 'Đang tải...',
+        'common.processing': 'Đang xử lý dữ liệu...',
+        'common.appName': 'TdyTime',
+    },
+    en: {
+        'app.title': 'TdyTime {{version}}',
+        'app.tagline': 'Your Today, Your Time',
+        'app.uploadTitle': 'Upload Schedule',
+        'app.uploadDesc': 'Supports .html or .json',
+        'app.pasteTitle': 'Paste HTML',
+        'app.pasteDesc': 'Paste directly from portal',
+        'app.demoMode': 'Demo Mode',
+        'common.copyright': '© 2026 TdyTime | Google AI Studio',
+        'common.loading': 'Loading...',
+        'common.processing': 'Processing data...',
+        'common.appName': 'TdyTime',
+    },
+};
 
 // Detect saved language preference
 let defaultLanguage = 'vi';
@@ -19,23 +45,11 @@ try {
     console.warn('LocalStorage not accessible, falling back to "vi"');
 }
 
-// 🎯 Build initial resources with critical translations merged
-const buildInitialResources = (lng: string): { translation: Record<string, any> } | undefined => {
-    const critical = criticalTranslations?.[lng];
-    if (!critical) return undefined;
-    
-    // Critical keys are immediately available
-    return {
-        translation: critical,
-    };
+// 🎯 Build initial resources with critical translations
+const resources: Record<string, { translation: Record<string, any> }> = {
+    vi: { translation: CRITICAL_TRANSLATIONS.vi },
+    en: { translation: CRITICAL_TRANSLATIONS.en },
 };
-
-const resources: Record<string, { translation: Record<string, any> }> = {};
-const viResources = buildInitialResources('vi');
-const enResources = buildInitialResources('en');
-
-if (viResources) resources.vi = viResources;
-if (enResources) resources.en = enResources;
 
 i18n.use(initReactI18next).init({
     resources,
@@ -46,20 +60,10 @@ i18n.use(initReactI18next).init({
         defaultVariables: { version: APP_VERSION },
     },
     react: {
-        useSuspense: false, // Disable suspense to avoid loading states
+        useSuspense: false,
     },
     partialBundledLanguages: true,
 });
-
-// 🎯 Inject critical translations directly into i18n store (guaranteed available)
-if (criticalTranslations) {
-    if (criticalTranslations.vi) {
-        i18n.addResourceBundle('vi', 'translation', criticalTranslations.vi, true, true);
-    }
-    if (criticalTranslations.en) {
-        i18n.addResourceBundle('en', 'translation', criticalTranslations.en, true, true);
-    }
-}
 
 /**
  * Lazy load a resource bundle (full translations)
@@ -68,7 +72,7 @@ export const loadLanguage = async (lng: string) => {
     if (!i18n.hasResourceBundle(lng, 'translation')) {
         try {
             const resources = await import(`./locales/${lng}.json`);
-            // Critical translations already injected, just add missing keys
+            // false = don't deep overwrite, preserves critical translations
             i18n.addResourceBundle(lng, 'translation', resources.default, false, true);
         } catch (error) {
             console.error(`Failed to load language: ${lng}`, error);
