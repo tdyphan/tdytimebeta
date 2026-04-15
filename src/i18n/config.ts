@@ -1,11 +1,15 @@
 /**
  * i18n Configuration — TdyTime v2
- * Loads Vietnamese and English translations with localStorage persistence.
+ * Merges critical inline translations for instant availability,
+ * then lazy-loads full translation bundles.
  */
 
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { APP_VERSION } from '@/core/constants';
+
+// 🎯 Merge critical translations immediately (from index.html inline script)
+const criticalTranslations = (window as any).CRITICAL_I18N;
 
 // Detect saved language preference
 let defaultLanguage = 'vi';
@@ -15,11 +19,26 @@ try {
     console.warn('LocalStorage not accessible, falling back to "vi"');
 }
 
-// Pre-load the initial language statically for first render if possible, 
-// but since we want to split chunks, we'll initialize without resources 
-// and add them immediately.
+// 🎯 Build initial resources with critical translations merged
+const buildInitialResources = (lng: string): { translation: Record<string, any> } | undefined => {
+    const critical = criticalTranslations?.[lng];
+    if (!critical) return undefined;
+    
+    // Critical keys are immediately available
+    return {
+        translation: critical,
+    };
+};
+
+const resources: Record<string, { translation: Record<string, any> }> = {};
+const viResources = buildInitialResources('vi');
+const enResources = buildInitialResources('en');
+
+if (viResources) resources.vi = viResources;
+if (enResources) resources.en = enResources;
+
 i18n.use(initReactI18next).init({
-    resources: {},
+    resources,
     lng: defaultLanguage,
     fallbackLng: 'vi',
     interpolation: {
@@ -27,25 +46,37 @@ i18n.use(initReactI18next).init({
         defaultVariables: { version: APP_VERSION },
     },
     react: {
-        useSuspense: true, // Enable suspense for lazy loading
+        useSuspense: false, // Disable suspense to avoid loading states
     },
+    partialBundledLanguages: true,
 });
 
 /**
- * Lazy load a resource bundle
+ * Lazy load a resource bundle (full translations)
  */
 export const loadLanguage = async (lng: string) => {
     if (!i18n.hasResourceBundle(lng, 'translation')) {
         try {
             const resources = await import(`./locales/${lng}.json`);
-            i18n.addResourceBundle(lng, 'translation', resources.default, true, true);
+            
+            // 🎯 Merge: full translations extend critical ones
+            const critical = criticalTranslations?.[lng];
+            const fullTranslations = resources.default;
+            const merged = critical
+                ? { ...fullTranslations, ...critical } // Critical keys override for consistency
+                : fullTranslations;
+            
+            i18n.addResourceBundle(lng, 'translation', merged, true, true);
         } catch (error) {
             console.error(`Failed to load language: ${lng}`, error);
         }
     }
 };
 
-// Initial load
+// Initial load for fallback language and current language
+if (defaultLanguage !== 'vi') {
+    loadLanguage('vi'); // Always preload vi as fallback
+}
 loadLanguage(defaultLanguage);
 
 /**
@@ -62,5 +93,14 @@ i18n.on('languageChanged', (lng) => {
     document.documentElement.lang = lng;
 });
 document.documentElement.lang = i18n.language || defaultLanguage;
+
+// 🎯 Export promise for main.tsx to wait on (usually resolves <50ms)
+export const i18nReady = new Promise<void>((resolve) => {
+    if (i18n.isInitialized) {
+        resolve();
+    } else {
+        i18n.on('initialized', resolve);
+    }
+});
 
 export default i18n;
