@@ -1,76 +1,194 @@
 import path from 'path';
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, '.', '');
-  return {
-    server: {
-      port: 3000,
-      host: '0.0.0.0',
-    },
-    plugins: [
-      react(),
-      VitePWA({
-        registerType: 'prompt', // Prompt user to update
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
-        manifest: {
-          name: 'Phân tích Lịch giảng',
-          short_name: 'TimeTable',
-          description: 'Công cụ phân tích và quản lý lịch giảng dạy.',
-          theme_color: '#ffffff',
-          background_color: '#ffffff',
-          display: 'standalone',
-          start_url: '/',
-          icons: [
-            {
-              src: 'pwa-192x192.png',
-              sizes: '192x192',
-              type: 'image/png'
-            },
-            {
-              src: 'pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png'
-            },
-            {
-              src: 'pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'any maskable'
-            }
-          ]
-        },
-        workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,json}']
-        },
-        devOptions: {
-          enabled: true,
-          type: 'module',
-        }
-      })
-    ],
+export default defineConfig({
     define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
+        __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     },
+
+    server: {
+        port: 3000,
+        host: '0.0.0.0',
+        forwardConsole: true,
+    },
+
+    preview: {
+        port: 3000,
+        host: '0.0.0.0',
+    },
+
+    plugins: [
+        react(),
+
+        VitePWA({
+            registerType: 'prompt', // ✔ giữ control update bằng UI của bạn
+
+            includeAssets: [
+                'favicon.svg',
+                'pwa-192x192.png',
+                'pwa-512x512.png',
+            ],
+
+            manifest: {
+                name: 'TdyTime - Phân tích Lịch giảng',
+                short_name: 'TdyTime',
+                description: 'Công cụ Phân tích và Quản lý Lịch giảng thông minh.',
+                theme_color: '#ffffff',
+                background_color: '#ffffff',
+                display: 'standalone',
+                start_url: '/',
+                icons: [
+                    {
+                        src: 'pwa-192x192.png',
+                        sizes: '192x192',
+                        type: 'image/png',
+                        purpose: 'any',
+                    },
+                    {
+                        src: 'pwa-512x512.png',
+                        sizes: '512x512',
+                        type: 'image/png',
+                        purpose: 'any',
+                    },
+                ],
+            },
+
+            workbox: {
+                globPatterns: process.env.NODE_ENV === 'production' 
+                    ? ['**/*.{js,css,html,ico,png,svg,json,woff2}']
+                    : [],
+                navigateFallback: '/index.html',
+                navigateFallbackDenylist: [/^\/api/],
+                maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+                navigationPreload: false, // Disabled — not needed with CacheFirst
+
+                cleanupOutdatedCaches: true,
+                clientsClaim: false,
+                skipWaiting: false,
+
+                runtimeCaching: [
+                    // HTML — CacheFirst: instant open, offline-first
+                    // Update flow: new deploy → SW detects precache diff → installs in background
+                    // → PWAUpdateHandler shows toast → user clicks update → reload
+                    {
+                        urlPattern: ({ request }) => request.mode === 'navigate',
+                        handler: 'CacheFirst',
+                        options: {
+                            cacheName: 'html-shell-cache',
+                            plugins: [
+                                {
+                                    cacheWillUpdate: async ({ response }) => {
+                                        return response && response.status === 200 ? response : null;
+                                    },
+                                },
+                            ],
+                        },
+                    },
+
+                    // Static assets (JS/CSS)
+                    {
+                        urlPattern: ({ request }) =>
+                            request.destination === 'script' ||
+                            request.destination === 'style',
+                        handler: 'CacheFirst',
+                        options: {
+                            cacheName: 'static-assets',
+                            expiration: {
+                                maxEntries: 50,
+                                maxAgeSeconds: 60 * 60 * 24 * 30,
+                            },
+                        },
+                    },
+
+                    // Google Fonts CSS
+                    {
+                        urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+                        handler: 'CacheFirst',
+                        options: {
+                            cacheName: 'google-fonts-cache',
+                            expiration: {
+                                maxEntries: 10,
+                                maxAgeSeconds: 60 * 60 * 24 * 365,
+                            },
+                            cacheableResponse: {
+                                statuses: [0, 200],
+                            },
+                        },
+                    },
+
+                    // Google Fonts files
+                    {
+                        urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+                        handler: 'CacheFirst',
+                        options: {
+                            cacheName: 'gstatic-fonts-cache',
+                            expiration: {
+                                maxEntries: 10,
+                                maxAgeSeconds: 60 * 60 * 24 * 365,
+                            },
+                            cacheableResponse: {
+                                statuses: [0, 200],
+                            },
+                        },
+                    },
+                ],
+            },
+
+            devOptions: {
+                enabled: true,
+                type: 'module',
+            },
+        }),
+    ],
+
     build: {
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            'vendor-react': ['react', 'react-dom', 'react-i18next', 'i18next'],
-            'vendor-recharts': ['recharts'],
-            'vendor-utils': ['lucide-react', 'react-swipeable'],
-          }
-        }
-      },
-      chunkSizeWarningLimit: 1000,
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (id.includes('node_modules')) {
+                        // React core only (~140KB instead of 341KB)
+                        if (
+                            id.includes('/react/') ||
+                            id.includes('/react-dom/') ||
+                            id.includes('/scheduler/')
+                        ) {
+                            return 'vendor-react';
+                        }
+                        // i18n — separate chunk
+                        if (id.includes('i18next') || id.includes('react-i18next')) {
+                            return 'vendor-i18n';
+                        }
+                        if (id.includes('react-router')) {
+                            return 'vendor-router';
+                        }
+                        if (id.includes('lucide-react') || id.includes('zustand') || id.includes('@tanstack')) {
+                            return 'vendor-utils';
+                        }
+                        // Vercel monitoring — separate to defer loading
+                        if (
+                            id.includes('@vercel/analytics') ||
+                            id.includes('@vercel/speed-insights')
+                        ) {
+                            return 'vendor-monitoring';
+                        }
+                    }
+                },
+            },
+        },
+
+        chunkSizeWarningLimit: 1000,
+
+        modulePreload: {
+            polyfill: false,
+        },
     },
+
     resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
-      }
-    }
-  };
+        alias: {
+            '@': path.resolve(__dirname, './src'),
+        },
+    },
 });
