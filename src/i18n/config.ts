@@ -51,6 +51,16 @@ i18n.use(initReactI18next).init({
     partialBundledLanguages: true,
 });
 
+// 🎯 Inject critical translations directly into i18n store (guaranteed available)
+if (criticalTranslations) {
+    if (criticalTranslations.vi) {
+        i18n.addResourceBundle('vi', 'translation', criticalTranslations.vi, true, true);
+    }
+    if (criticalTranslations.en) {
+        i18n.addResourceBundle('en', 'translation', criticalTranslations.en, true, true);
+    }
+}
+
 /**
  * Lazy load a resource bundle (full translations)
  */
@@ -58,31 +68,8 @@ export const loadLanguage = async (lng: string) => {
     if (!i18n.hasResourceBundle(lng, 'translation')) {
         try {
             const resources = await import(`./locales/${lng}.json`);
-
-            // 🎯 Deep merge: critical translations take priority
-            const critical = criticalTranslations?.[lng];
-            const fullTranslations = resources.default;
-            
-            if (critical) {
-                // Deep merge: preserve critical keys over full translations
-                const deepMerge = (target: Record<string, any>, source: Record<string, any>): Record<string, any> => {
-                    const result = { ...target };
-                    for (const key of Object.keys(source)) {
-                        if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
-                            result[key] = deepMerge(result[key] || {}, source[key]);
-                        } else if (critical[key] !== undefined) {
-                            // Critical key exists: keep it
-                            result[key] = critical[key];
-                        } else {
-                            result[key] = source[key];
-                        }
-                    }
-                    return result;
-                };
-                i18n.addResourceBundle(lng, 'translation', deepMerge(fullTranslations, critical), true, true);
-            } else {
-                i18n.addResourceBundle(lng, 'translation', fullTranslations, true, true);
-            }
+            // Critical translations already injected, just add missing keys
+            i18n.addResourceBundle(lng, 'translation', resources.default, false, true);
         } catch (error) {
             console.error(`Failed to load language: ${lng}`, error);
         }
