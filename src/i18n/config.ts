@@ -58,15 +58,31 @@ export const loadLanguage = async (lng: string) => {
     if (!i18n.hasResourceBundle(lng, 'translation')) {
         try {
             const resources = await import(`./locales/${lng}.json`);
-            
-            // 🎯 Merge: full translations extend critical ones
+
+            // 🎯 Deep merge: critical translations take priority
             const critical = criticalTranslations?.[lng];
             const fullTranslations = resources.default;
-            const merged = critical
-                ? { ...fullTranslations, ...critical } // Critical keys override for consistency
-                : fullTranslations;
             
-            i18n.addResourceBundle(lng, 'translation', merged, true, true);
+            if (critical) {
+                // Deep merge: preserve critical keys over full translations
+                const deepMerge = (target: Record<string, any>, source: Record<string, any>): Record<string, any> => {
+                    const result = { ...target };
+                    for (const key of Object.keys(source)) {
+                        if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                            result[key] = deepMerge(result[key] || {}, source[key]);
+                        } else if (critical[key] !== undefined) {
+                            // Critical key exists: keep it
+                            result[key] = critical[key];
+                        } else {
+                            result[key] = source[key];
+                        }
+                    }
+                    return result;
+                };
+                i18n.addResourceBundle(lng, 'translation', deepMerge(fullTranslations, critical), true, true);
+            } else {
+                i18n.addResourceBundle(lng, 'translation', fullTranslations, true, true);
+            }
         } catch (error) {
             console.error(`Failed to load language: ${lng}`, error);
         }
