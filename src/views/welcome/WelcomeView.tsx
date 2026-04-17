@@ -276,7 +276,7 @@ const WelcomeView: React.FC = () => {
                             </button>
                         ) : (
                             <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                {t('common.appName', { defaultValue: 'TdyTime' })}
+                                TdyTime
                             </div>
                         )}
                     </div>
@@ -302,7 +302,7 @@ const WelcomeView: React.FC = () => {
                     <img src="/favicon.svg" alt="App Logo" className="w-16 h-16 mb-4 drop-shadow-sm" />
 
                     <h1 className="text-xl font-black text-slate-800 dark:text-slate-100 tracking-tight flex items-baseline gap-1.5">
-                        {t('common.appName', { defaultValue: 'TdyTime' })}
+                        TdyTime 
                         <span 
                             onClick={handleVersionClick}
                             className="text-slate-400 font-num text-[10px] font-medium cursor-pointer select-none"
