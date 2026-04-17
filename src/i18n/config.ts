@@ -139,22 +139,28 @@ i18n.use(initReactI18next).init({
     partialBundledLanguages: true,
 });
 
-/**
- * Lazy load a resource bundle (full translations)
- */
+// 🎯 Vite-optimized locale loader (avoids CDN chunk resolution issues)
+const localeModules = import.meta.glob<{ default: Record<string, string> }>('./locales/*.json');
+
 export const loadLanguage = async (lng: string): Promise<boolean> => {
-    if (!i18n.hasResourceBundle(lng, 'translation')) {
-        try {
-            const resources = await import(`./locales/${lng}.json`);
-            // false = don't deep overwrite, preserves critical translations
-            i18n.addResourceBundle(lng, 'translation', resources.default, false, true);
-            return true;
-        } catch (error) {
-            console.error(`Failed to load language: ${lng}`, error);
-            return false;
-        }
+    if (i18n.hasResourceBundle(lng, 'translation')) return true;
+
+    const path = `./locales/${lng}.json`;
+    const loadFn = (localeModules as Record<string, () => Promise<any>>)[path];
+    
+    if (!loadFn) {
+        console.error(`[i18n] Locale file not found: ${path}`);
+        return false;
     }
-    return true;
+
+    try {
+        const resources = await loadFn();
+        i18n.addResourceBundle(lng, 'translation', resources.default, false, true);
+        return true;
+    } catch (error) {
+        console.error(`[i18n] Failed to load locale ${lng}:`, error);
+        return false;
+    }
 };
 
 // Initial load for fallback language and current language
