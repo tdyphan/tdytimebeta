@@ -142,8 +142,9 @@ i18n.use(initReactI18next).init({
 // 🎯 Vite-optimized locale loader (avoids CDN chunk resolution issues)
 const localeModules = import.meta.glob<{ default: Record<string, string> }>('./locales/*.json');
 
-export const loadLanguage = async (lng: string): Promise<boolean> => {
-    if (i18n.hasResourceBundle(lng, 'translation')) return true;
+export const loadLanguage = async (lng: string, force = false): Promise<boolean> => {
+    // If already present and not forced, skip fetching
+    if (i18n.hasResourceBundle(lng, 'translation') && !force) return true;
 
     const path = `./locales/${lng}.json`;
     const loadFn = (localeModules as Record<string, () => Promise<any>>)[path];
@@ -155,6 +156,7 @@ export const loadLanguage = async (lng: string): Promise<boolean> => {
 
     try {
         const resources = await loadFn();
+        // overwrite existing bundle to ensure latest content; preserve critical keys by merge strategy if needed
         i18n.addResourceBundle(lng, 'translation', resources.default, false, true);
         return true;
     } catch (error) {
@@ -168,8 +170,8 @@ if (defaultLanguage !== 'vi') {
     // Preload fallback; we don't block on this call
     void loadLanguage('vi');
 }
-// Kick off background load for the selected language as well
-void loadLanguage(defaultLanguage);
+// NOTE: We intentionally do not kick off a non-blocking load for `defaultLanguage` here.
+// i18nReady will force-load the selected language (ensures network fetch + precache).
 
 /**
  * Custom change language function that ensures resource is loaded
@@ -206,7 +208,9 @@ export const i18nReady = new Promise<void>(async (resolve) => {
     });
     await initPromise;
     try {
-        const ok = await loadLanguage(defaultLanguage);
+        // Force-load selected language at init so the locale chunk is requested and
+        // can be precached by the Service Worker on first visit.
+        const ok = await loadLanguage(defaultLanguage, true);
         if (!ok) {
             console.warn('i18n: failed to preload default language; continuing with CRITICAL_TRANSLATIONS');
         }
