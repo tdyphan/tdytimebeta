@@ -142,31 +142,48 @@ i18n.use(initReactI18next).init({
 /**
  * Lazy load a resource bundle (full translations)
  */
-export const loadLanguage = async (lng: string) => {
+export const loadLanguage = async (lng: string): Promise<boolean> => {
     if (!i18n.hasResourceBundle(lng, 'translation')) {
         try {
             const resources = await import(`./locales/${lng}.json`);
             // false = don't deep overwrite, preserves critical translations
             i18n.addResourceBundle(lng, 'translation', resources.default, false, true);
+            return true;
         } catch (error) {
             console.error(`Failed to load language: ${lng}`, error);
+            return false;
         }
     }
+    return true;
 };
 
 // Initial load for fallback language and current language
 if (defaultLanguage !== 'vi') {
-    loadLanguage('vi'); // Always preload vi as fallback
+    // Preload fallback; we don't block on this call
+    void loadLanguage('vi');
 }
-loadLanguage(defaultLanguage);
+// Kick off background load for the selected language as well
+void loadLanguage(defaultLanguage);
 
 /**
  * Custom change language function that ensures resource is loaded
  */
 export const changeLanguage = async (lng: string) => {
-    await loadLanguage(lng);
-    await i18n.changeLanguage(lng);
-    localStorage.setItem('language', lng);
+    const ok = await loadLanguage(lng);
+    if (!ok) {
+        console.warn(`i18n: failed to load ${lng}, keeping current language`);
+        return;
+    }
+    try {
+        await i18n.changeLanguage(lng);
+        try {
+            localStorage.setItem('language', lng);
+        } catch {
+            // Ignore localStorage errors in restricted environments
+        }
+    } catch (e) {
+        console.error('i18n: changeLanguage error', e);
+    }
 };
 
 // Sync document lang attribute
@@ -183,9 +200,12 @@ export const i18nReady = new Promise<void>(async (resolve) => {
     });
     await initPromise;
     try {
-        await loadLanguage(defaultLanguage);
+        const ok = await loadLanguage(defaultLanguage);
+        if (!ok) {
+            console.warn('i18n: failed to preload default language; continuing with CRITICAL_TRANSLATIONS');
+        }
     } catch (e) {
-        console.warn('i18n: failed to preload default language', e);
+        console.warn('i18n: unexpected error during preload', e);
     }
     resolve();
 });

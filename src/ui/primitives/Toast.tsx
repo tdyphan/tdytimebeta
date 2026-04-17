@@ -12,7 +12,8 @@ export const Toast: React.FC = () => {
 
     // Translate raw keys on render if store contains a translation key
     const displayMessage = useMemo(() => {
-        if (message && typeof message === 'string' && /^\w+(?:\.\w+)+$/.test(message) && !message.includes(' ')) {
+        const rawKeyRegex = /^[a-z]+(\.[a-z]+)+$/i; // avoid matching emails/urls
+        if (message && typeof message === 'string' && rawKeyRegex.test(message)) {
             return t(message, { defaultValue: message });
         }
         return message || '';
