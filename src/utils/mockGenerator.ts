@@ -1,5 +1,4 @@
 import { ScheduleData, CourseType, CourseSession, WeekSchedule, Metadata } from '../core/schedule/schedule.types';
-// import { getPeriodTimes } from '../core/constants';
 
 // --- Types & Constants & Enums ---
 
@@ -70,9 +69,6 @@ const FULL_DAY_NAMES: Record<DayKey, string> = {
     fri: 'Friday', sat: 'Saturday', sun: 'Sunday'
 };
 
-// const DAY_INDICES: Record<DayKey, number> = {
-//     mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 0
-// };
 
 // --- Utilities & RNG ---
 
@@ -93,7 +89,7 @@ function xmur3(str: string) {
 /** PRNG generator returning a random number 0-1 */
 function mulberry32(a: number) {
     return function() {
-      var t = a += 0x6D2B79F5;
+      let t = a += 0x6D2B79F5;
       t = Math.imul(t ^ t >>> 15, t | 1);
       t ^= t + Math.imul(t ^ t >>> 7, t | 61);
       return ((t ^ t >>> 14) >>> 0) / 4294967296;

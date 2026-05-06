@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useScheduleStore } from '@/core/stores/schedule.store';
 import { FilterBar, EmptyState } from '@/ui';
@@ -28,14 +28,12 @@ const WeeklyView: React.FC = () => {
     // Optimized Data Logic for Weekly View
     // targetWeekIdx is currentWeekIndex + 1 (1-based)
     // We cast filterFn to accept FlatSession since createSessionFilter is compatible with CourseSession base
-    const { grouped, hasSessions, weekRange } = useWeeklyData(
+    const { grouped, rawSessions, hasSessions, weekRange } = useWeeklyData(
         currentWeekIndex + 1, 
         filterFn as (s: FlatSession) => boolean
     );
 
-    const [viewMode, setViewMode] = useState<'horizontal' | 'vertical'>('horizontal');
-
-    useEffect(() => { if (window.innerWidth < 768) setViewMode('vertical'); }, []);
+    const [viewMode, setViewMode] = useState<'horizontal' | 'vertical'>(window.innerWidth < 768 ? 'vertical' : 'horizontal');
 
     const isCurrent = useMemo(() => {
         if (!weekRange) return false;
@@ -59,6 +57,8 @@ const WeeklyView: React.FC = () => {
                 isFilterOpen={isFilterOpen}
                 onToggleFilter={toggleFilter}
                 hasActiveFilters={hasActiveFilters}
+                sessions={rawSessions}
+                teacherName={teacherName}
             />
 
             {isFilterOpen && (

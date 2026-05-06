@@ -4,7 +4,12 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+    optimizeDeps: {
+        include: ['react', 'react-dom', '@react-pdf/renderer'],
+    },
+
     define: {
+        global: 'window',
         __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
         __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
     },
@@ -174,6 +179,9 @@ export default defineConfig({
     ],
 
     build: {
+        target: 'esnext',
+        minify: 'terser',
+        reportCompressedSize: false,
         rollupOptions: {
             output: {
                 manualChunks(id) {
@@ -203,12 +211,15 @@ export default defineConfig({
                         ) {
                             return 'vendor-monitoring';
                         }
+                        if (id.includes('@react-pdf/renderer')) {
+                            return 'vendor-pdf';
+                        }
                     }
                 },
             },
         },
 
-        chunkSizeWarningLimit: 1000,
+        chunkSizeWarningLimit: 1500,
 
         modulePreload: {
             polyfill: true,

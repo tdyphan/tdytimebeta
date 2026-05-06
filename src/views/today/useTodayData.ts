@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useScheduleStore } from '@/core/stores/schedule.store';
-import { isCurrentWeek } from '@/core/schedule';
+import { isCurrentWeek, isMainTeacher } from '@/core/schedule/schedule.utils';
 import type { SessionWithStatus, NextTeachingInfo, DisplayState } from './today.types';
 
 const formatDateVN = (date: Date) => {
@@ -118,7 +118,7 @@ export const useTodayData = () => {
     // Performance P0: Precompute today's sessions from index
     const todaySessions: SessionWithStatus[] = useMemo(() => {
         const result = sessionsIndex
-            .filter(s => s.weekIdx === currentWeekIdx && s.dayIdx === todayDayIdx)
+            .filter(s => s.weekIdx === currentWeekIdx && s.dayIdx === todayDayIdx && isMainTeacher(s.teacher, teacherName))
             .map(s => {
                 let status: 'PENDING' | 'LIVE' | 'COMPLETED' = 'PENDING';
                 const t = now.getTime();
@@ -134,7 +134,7 @@ export const useTodayData = () => {
             if (priority[a.status] !== priority[b.status]) return priority[a.status] - priority[b.status];
             return a.startTs - b.startTs;
         });
-    }, [sessionsIndex, currentWeekIdx, todayDayIdx, now.getTime()]);
+    }, [sessionsIndex, currentWeekIdx, todayDayIdx, teacherName, now.getTime()]);
 
     const isWeekEmpty = useMemo(() => {
         if (currentWeekIdx === -1) return true;

@@ -1,10 +1,13 @@
-import React from 'react';
-import { Clock, MapPin } from 'lucide-react';
-import { Badge, TypeBadge } from '@/ui';
+import React, { useState, useCallback } from 'react';
+import { Clock, MapPin, StickyNote } from 'lucide-react';
+import Badge from '@/ui/primitives/Badge';
+import TypeBadge from '@/ui/composites/TypeBadge';
+import NoteModal from '@/ui/composites/NoteModal';
 import type { CourseSession } from '@/core/schedule/schedule.types';
 import type { FlatSession } from '@/core/schedule/schedule.index';
 import { getPeriodTimes } from '@/core/constants';
 import { formatRoom, formatClassDisplay } from '@/core/schedule/schedule.utils';
+import { useNotesStore } from '@/core/stores/notes.store';
 
 type SessionStatus = 'PENDING' | 'LIVE' | 'COMPLETED';
 type SessionVariant = 'today' | 'weekly';
@@ -58,6 +61,10 @@ const WeeklyCard: React.FC<{ session: FlatSession | CourseSession; displayName: 
     session, displayName, showTeacher, className = '', startTimeStr, endTimeStr,
 }) => {
     const { start: startTime, end: endTime } = resolveTimes(session, { startTimeStr, endTimeStr });
+    const [isNoteOpen, setIsNoteOpen] = useState(false);
+    const handleCloseNote = useCallback(() => setIsNoteOpen(false), []);
+    const getNote = useNotesStore(s => s.getNote);
+    const hasNote = !!getNote(session.id);
     
     return (
         <div className={`p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-[1px] hover:border-slate-300 dark:hover:border-slate-600 group flex flex-col min-w-0 w-full overflow-hidden ${className}`}>
@@ -83,8 +90,33 @@ const WeeklyCard: React.FC<{ session: FlatSession | CourseSession; displayName: 
                 <div className="flex-1 min-w-0 truncate">
                     {formatClassDisplay(session)}
                 </div>
-                <TypeBadge type={session.type} compact />
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsNoteOpen(true);
+                        }}
+                        className={`p-1 rounded transition-colors ${hasNote 
+                            ? 'bg-accent-100 dark:bg-accent-900/30 text-accent-600 dark:text-accent-400' 
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500'}`}
+                    >
+                        <StickyNote size={12} fill={hasNote ? "currentColor" : "none"} strokeWidth={hasNote ? 2.5 : 1.5} />
+                    </button>
+                    <TypeBadge type={session.type} compact />
+                </div>
             </div>
+
+            {/* Note Modal */}
+            <NoteModal
+                isOpen={isNoteOpen}
+                sessionId={session.id}
+                sessionTitle={displayName}
+                onClose={handleCloseNote}
+                date={'dateStr' in session ? session.dateStr : undefined}
+                room={formatRoom(session.room)}
+                className={formatClassDisplay(session)}
+                time={`${startTime} - ${endTime}`}
+            />
 
             {/* Optional Teacher Footer Strip */}
             {showTeacher && (
@@ -122,6 +154,10 @@ const TodayCard: React.FC<{ session: FlatSession | CourseSession; displayName: s
     session, displayName, isLive, showTeacher, className = '', startTimeStr, endTimeStr,
 }) => {
     const { start: startTime, end: endTime } = resolveTimes(session, { startTimeStr, endTimeStr });
+    const [isNoteOpen, setIsNoteOpen] = useState(false);
+    const handleCloseNote = useCallback(() => setIsNoteOpen(false), []);
+    const getNote = useNotesStore(s => s.getNote);
+    const hasNote = !!getNote(session.id);
 
     return (
         <div className={`relative rounded-2xl p-5 transition-all duration-200 ${isLive
@@ -162,8 +198,30 @@ const TodayCard: React.FC<{ session: FlatSession | CourseSession; displayName: s
                         {formatClassDisplay(session)}
                     </div>
                 </div>
-                <TypeBadge type={session.type} />
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setIsNoteOpen(true)}
+                        className={`p-1.5 rounded-lg transition-colors ${hasNote 
+                            ? 'bg-accent-100 dark:bg-accent-900/30 text-accent-600 dark:text-accent-400' 
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 dark:text-slate-500'}`}
+                    >
+                        <StickyNote size={16} fill={hasNote ? "currentColor" : "none"} strokeWidth={hasNote ? 2.5 : 1.5} />
+                    </button>
+                    <TypeBadge type={session.type} />
+                </div>
             </div>
+
+            {/* Note Modal */}
+            <NoteModal
+                isOpen={isNoteOpen}
+                sessionId={session.id}
+                sessionTitle={displayName}
+                onClose={handleCloseNote}
+                date={'dateStr' in session ? session.dateStr : undefined}
+                room={formatRoom(session.room)}
+                className={formatClassDisplay(session)}
+                time={`${startTime} - ${endTime}`}
+            />
 
             {/* Optional Teacher Footer Strip */}
             {showTeacher && (
