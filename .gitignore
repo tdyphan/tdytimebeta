@@ -1,1 +1,10 @@
 node_modules
+dist
+build
+.next
+.turbo
+out
+*.tsbuildinfo
+.cache
+.vercel
+.parcel-cache
